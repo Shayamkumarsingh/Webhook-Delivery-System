@@ -1,0 +1,497 @@
+# services:
+#   auth-service:
+#     build: .
+#     container_name: auth-service
+#     ports:
+#       - "5001:5001"
+#     env_file:
+#       - .env
+#     restart: on-failure
+
+
+
+#     version: "3.9"
+
+
+
+
+# it works upper wala 
+
+# services:
+#   postgres:
+#     image: postgres:16-alpine
+#     container_name: postgres
+#     environment:
+#       POSTGRES_USER: ${POSTGRES_USER}
+#       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+#       POSTGRES_DB: ${POSTGRES_DB}
+#     ports:
+#       - "5432:5432"
+#     volumes:
+#       - pg_data:/var/lib/postgresql/data
+#       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U postgres"]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 5
+#     networks:
+#       - webhook-network
+
+#   auth-service:
+#     build: ./backend/services/auth-service
+#     container_name: auth-service
+#     ports:
+#       - "5001:5001"
+#     env_file:
+#       - ./backend/services/auth-service/.env
+#     depends_on:
+#       postgres:
+#         condition: service_healthy
+#     restart: on-failure
+#     networks:
+#       - webhook-network
+
+# networks:
+#   webhook-network:
+#     driver: bridge
+
+# volumes:
+#   pg_data:
+
+
+
+
+
+
+
+
+# docker file of auth 
+
+# FROM node:20-alpine
+# WORKDIR /app
+# COPY package*.json ./
+# RUN npm install --omit=dev
+# COPY . .
+# EXPOSE 5001
+# CMD ["node", "src/app.js"]
+
+
+
+
+
+
+dockercomposefile is correct->
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_log:/var/lib/zookeeper/log  
+    networks:
+      - webhook-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092" 
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - kafka_data:/var/lib/kafka/data  
+    networks:
+      - webhook-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./backend/infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - webhook-network
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/auth-service/Dockerfile
+    container_name: auth-service
+    ports:
+      - "5001:5001"
+    env_file:
+      - ./backend/services/auth-service/.env
+    environment:
+      - NODE_ENV=production   
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    restart: on-failure
+    networks:
+      - webhook-network
+
+  webhook-service:                                              # ← added
+    build:
+      context: .
+      dockerfile: ./backend/services/webhook-service/Dockerfile
+    container_name: webhook-service
+    ports:
+      - "5002:5002"
+    env_file:
+      - ./backend/services/webhook-service/.env
+    environment:
+      - NODE_ENV=production 
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    restart: on-failure
+    networks:
+      - webhook-network    
+
+  delivery-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/delivery-service/Dockerfile
+    container_name: delivery-service
+    ports:
+      - "5004:5004"
+    env_file:
+      - ./backend/services/delivery-service/.env
+    environment:
+      - NODE_ENV=production 
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    restart: on-failure
+    networks:
+      - webhook-network
+
+networks:
+  webhook-network:
+    driver: bridge
+
+volumes:
+  pg_data:
+  zookeeper_data:
+  zookeeper_log:
+  kafka_data:
+
+
+
+
+
+
+
+
+
+# services:
+#   # PostgreSQL Database
+#   postgres:
+#     image: postgres:15-alpine
+#     container_name: postgres
+#     environment:
+#       POSTGRES_USER: postgres
+#       POSTGRES_PASSWORD: postgres
+#       POSTGRES_DB: webhook_system
+#     ports:
+#       - "5432:5432"
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U postgres"]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 5
+
+#   # MongoDB Database
+#   mongo:
+#     image: mongo:7
+#     container_name: mongo
+#     ports:
+#       - "27017:27017"
+#     volumes:
+#       - mongo_data:/data/db
+#     healthcheck:
+#       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 5
+
+#   # Redis for caching and queues
+#   redis:
+#     image: redis:7-alpine
+#     container_name: redis
+#     ports:
+#       - "6379:6379"
+#     volumes:
+#       - redis_data:/data
+#     healthcheck:
+#       test: ["CMD", "redis-cli", "ping"]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 5
+
+#   # Zookeeper (required for Kafka)
+#   zookeeper:
+#     image: confluentinc/cp-zookeeper:7.5.0
+#     container_name: zookeeper
+#     environment:
+#       ZOOKEEPER_CLIENT_PORT: 2181
+#       ZOOKEEPER_TICK_TIME: 2000
+#     ports:
+#       - "2181:2181"
+#     volumes:
+#       - zookeeper_data:/var/lib/zookeeper/data
+
+#   # Kafka
+#   kafka:
+#     image: confluentinc/cp-kafka:7.5.0
+#     container_name: kafka
+#     depends_on:
+#       - zookeeper
+#     ports:
+#       - "9092:9092"
+#       - "29092:29092"
+#     environment:
+#       KAFKA_BROKER_ID: 1
+#       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+#       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+#       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+#       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+#       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+#       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+#     volumes:
+#       - kafka_data:/var/lib/kafka/data
+#     healthcheck:
+#       test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 5
+
+#   # API Gateway
+#   api-gateway:
+#     build:
+#       context: ./api-gateway
+#       dockerfile: Dockerfile
+#     container_name: api-gateway
+#     ports:
+#       - "3000:3000"
+#     depends_on:
+#       - postgres
+#       - mongo
+#       - kafka
+#       - redis
+#     environment:
+#       PORT: 3000
+#       POSTGRES_URI: postgresql://postgres:postgres@postgres:5432/webhook_system
+#       MONGO_URI: mongodb://mongo:27017/webhook-system
+#       KAFKA_BROKERS: kafka:29092
+#       REDIS_URI: redis://redis:6379
+#       JWT_SECRET: your-secret-key-here
+
+#   # Auth Service
+#   auth-service:
+#     build:
+#       context: ./services/auth-service
+#       dockerfile: Dockerfile
+#     container_name: auth-service
+#     ports:
+#       - "3001:3001"
+#     depends_on:
+#       - postgres
+#       - kafka
+#     environment:
+#       PORT: 3001
+#       POSTGRES_URI: postgresql://postgres:postgres@postgres:5432/webhook_system
+#       KAFKA_BROKERS: kafka:29092
+#       JWT_SECRET: your-secret-key-here
+
+#   # Webhook Service
+#   webhook-service:
+#     build:
+#       context: ./services/webhook-service
+#       dockerfile: Dockerfile
+#     container_name: webhook-service
+#     ports:
+#       - "3002:3002"
+#     depends_on:
+#       - postgres
+#       - kafka
+#     environment:
+#       PORT: 3002
+#       POSTGRES_URI: postgresql://postgres:postgres@postgres:5432/webhook_system
+#       KAFKA_BROKERS: kafka:29092
+
+#   # Event Service
+#   event-service:
+#     build:
+#       context: ./services/event-service
+#       dockerfile: Dockerfile
+#     container_name: event-service
+#     ports:
+#       - "3003:3003"
+#     depends_on:
+#       - mongo
+#       - kafka
+#     environment:
+#       PORT: 3003
+#       MONGO_URI: mongodb://mongo:27017/webhook-system
+#       KAFKA_BROKERS: kafka:29092
+
+#   # Delivery Service
+#   delivery-service:
+#     build:
+#       context: ./services/delivery-service
+#       dockerfile: Dockerfile
+#     container_name: delivery-service
+#     ports:
+#       - "3004:3004"
+#     depends_on:
+#       - postgres
+#       - kafka
+#       - redis
+#     environment:
+#       PORT: 3004
+#       POSTGRES_URI: postgresql://postgres:postgres@postgres:5432/webhook_system
+#       KAFKA_BROKERS: kafka:29092
+#       REDIS_URI: redis://redis:6379
+
+#   # Retry Service
+#   retry-service:
+#     build:
+#       context: ./services/retry-service
+#       dockerfile: Dockerfile
+#     container_name: retry-service
+#     ports:
+#       - "3005:3005"
+#     depends_on:
+#       - kafka
+#       - redis
+#     environment:
+#       PORT: 3005
+#       KAFKA_BROKERS: kafka:29092
+#       REDIS_URI: redis://redis:6379
+
+#   # DLQ Service
+#   dlq-service:
+#     build:
+#       context: ./services/dlq-service
+#       dockerfile: Dockerfile
+#     container_name: dlq-service
+#     ports:
+#       - "3006:3006"
+#     depends_on:
+#       - mongo
+#       - kafka
+#     environment:
+#       PORT: 3006
+#       MONGO_URI: mongodb://mongo:27017/webhook-system
+#       KAFKA_BROKERS: kafka:29092
+
+#   # Notification Service
+#   notification-service:
+#     build:
+#       context: ./services/notification-service
+#       dockerfile: Dockerfile
+#     container_name: notification-service
+#     ports:
+#       - "3007:3007"
+#     depends_on:
+#       - mongo
+#       - kafka
+#     environment:
+#       PORT: 3007
+#       MONGO_URI: mongodb://mongo:27017/webhook-system
+#       KAFKA_BROKERS: kafka:29092
+
+#   # Logs Service
+#   logs-service:
+#     build:
+#       context: ./services/logs-service
+#       dockerfile: Dockerfile
+#     container_name: logs-service
+#     ports:
+#       - "3008:3008"
+#     depends_on:
+#       - mongo
+#     environment:
+#       PORT: 3008
+#       MONGO_URI: mongodb://mongo:27017/webhook-system
+
+#   # Rate Limit Service
+#   rate-limit-service:
+#     build:
+#       context: ./services/rate-limit-service
+#       dockerfile: Dockerfile
+#     container_name: rate-limit-service
+#     ports:
+#       - "3009:3009"
+#     depends_on:
+#       - redis
+#     environment:
+#       PORT: 3009
+#       REDIS_URI: redis://redis:6379
+
+#   # Prometheus
+#   prometheus:
+#     image: prom/prometheus
+#     container_name: prometheus
+#     volumes:
+#       - ./infra/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+#       - prometheus_data:/prometheus
+#     ports:
+#       - "9090:9090"
+#     command:
+#       - '--config.file=/etc/prometheus/prometheus.yml'
+#       - '--storage.tsdb.path=/prometheus'
+
+#   # Grafana
+#   grafana:
+#     image: grafana/grafana
+#     container_name: grafana
+#     ports:
+#       - "3010:3000"
+#     environment:
+#       - GF_SECURITY_ADMIN_PASSWORD=admin
+#     volumes:
+#       - grafana_data:/var/lib/grafana
+
+# volumes:
+#   postgres_data:
+#   mongo_data:
+#   redis_data:
+#   zookeeper_data:
+#   kafka_data:
+#   prometheus_data:
+#   grafana_data:

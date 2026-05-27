@@ -1,0 +1,3 @@
+CREATE DATABASE auth_db;
+CREATE DATABASE webhook_db;
+CREATE DATABASE delivery_db;
