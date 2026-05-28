@@ -12,14 +12,10 @@ export const createWebhook = async (userId, data) => {
 };
 
 export const getWebhooks = async (userId, eventType) => {
-  const whereClause = {
-    userId,
-    isActive: true,
-  };
+  const whereClause = { isActive: true };
 
-  if (eventType) {
-    whereClause.eventType = eventType;
-  }
+  if (userId) whereClause.userId = userId;  // ← only filter if provided
+  if (eventType) whereClause.eventType = eventType;
 
   return await Webhook.findAll({ where: whereClause });
 };

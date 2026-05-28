@@ -9,6 +9,7 @@ const router =express.Router();
 
 
 router.post("/create",validate(createWebhookSchema),create);
+router.get("/", getAll); 
 router.get("/getall",getAll);
 router.delete("/:id",remove);
 

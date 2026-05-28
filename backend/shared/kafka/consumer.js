@@ -30,23 +30,14 @@ export const createConsumer = async (
     );
 
     await consumer.run({
-      eachMessage: async ({ message }) => {
-        try {
-          const data = JSON.parse(
-            message.value.toString()
-          );
-
-          logger.info(
-            `Message received from ${topic}`
-          );
-
-          await handler(data);
-
-        } catch (err) {
-          logger.error("Handler Error", err);
-
-          // Retry Logic
-          if ((data.retryCount || 0) < 3) {
+     eachMessage: async ({ message }) => {
+  let data;  // ← hoist it
+  try {
+    data = JSON.parse(message.value.toString());
+    await handler(data);
+  } catch (err) {
+    logger.error("Handler Error", err);
+    if ((data?.retryCount || 0) < 3) {  
 
             logger.warn(
               `Retrying message (${(data.retryCount || 0) + 1}/3)`

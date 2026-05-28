@@ -10,7 +10,16 @@ import { connectProducer } from "../../../../shared/kafka/producer.js";
 await connectProducer();
 
 export const deliveryEvent = async (event, webhook) => {
-  const payload = event.payload;
+  const payload = {
+    userId: event.userId,
+    email: event.email,
+    type: event.type,
+    eventType: event.eventType,
+  };
+
+  logger.info(`Sending to: ${webhook.url} with payload: ${JSON.stringify(payload)}`); 
+  
+
   const signature = generateSignature(payload, webhook.secret);
 
   try {
@@ -21,7 +30,7 @@ export const deliveryEvent = async (event, webhook) => {
     });
 
     await DeliveryLog.create({
-      eventId: event.id || event._id?.toString(),
+      eventId: event.userId || "unknown",
       webhookUrl: webhook.url,
       status: "success",
       response: response.data,
@@ -31,7 +40,7 @@ export const deliveryEvent = async (event, webhook) => {
     logger.info("webhook delivered successfully");
 
   } catch (err) {
-    logger.error("Delivery failed");
+     logger.error("Delivery failed: " + err.message);
 
     // Create delivery log for failed attempt
     await DeliveryLog.create({

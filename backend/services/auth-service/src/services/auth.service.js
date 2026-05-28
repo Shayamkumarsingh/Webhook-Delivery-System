@@ -4,20 +4,14 @@ import User from '../models/user.model.js';
 import crypto from 'crypto';
 import { logger } from  "../../../../shared/index.js";
 import { sendMessage } from "../../../../shared/kafka/producer.js";
+import { TOPICS } from "../../../../shared/kafka/topics.js";
 
 
 
 
 
 
-const TOPICS = {
-  USER: 'user-events',
-  WEBHOOK: 'webhook-events',
-  EVENT: 'event-events',
-  DELIVERY: 'delivery-events',
-  RETRY: 'retry-events',
-  DLQ: 'dlq-events',
-};
+
 
 export const registerUser = async ({ email, password }) => {
   const existingUser = await User.findOne({ where: { email } });
@@ -34,10 +28,11 @@ export const registerUser = async ({ email, password }) => {
   });
 
   // PUBLISH USER EVENT to Kafka so that other services can consume it
-  await sendMessage(TOPICS.USER, {
+  await sendMessage(TOPICS.EVENTS, {
     userId: user.id.toString(),
     email: user.email,
     type: "USER_CREATED",
+    eventType: "user.created",
   });
 
   return {
