@@ -1,12 +1,15 @@
 import mongoose from "mongoose" 
 
 const eventSchema=new mongoose.Schema({
-    userId:String,
-    eventType:String,
-    payload:Object,
-    status:{
-        type:String,
-        default:"pending"}
+    userId: { type: String, required: true },
+  email:  { type: String, required: true },
+  eventType: { type: String, required: true }, // e.g. "user.created"
+  payload: { type: Object, default: {} },
+    status: {
+  type: String,
+  enum: ["pending", "published", "failed"],
+  default: "pending"
+}
  },{timestamps:true});
 
  const Event=mongoose.model("Event",eventSchema);

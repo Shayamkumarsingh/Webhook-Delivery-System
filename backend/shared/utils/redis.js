@@ -1,9 +1,8 @@
 import Redis from "ioredis";
 
-const redis=new Redis({
+export const redis=new Redis({
     host:process.env.REDIS_HOST || "localhost",
-    port:process.env.REDIS_PORT ,
-    password:process.env.REDIS_PASSWORD ,
+    port: parseInt(process.env.REDIS_PORT) || 6379 ,
+    ...(process.env.REDIS_PASSWORD && { password: process.env.REDIS_PASSWORD }),
 })
 
-export default redis;

@@ -1,13 +1,13 @@
-import {redis} from "shared"
+import { redis } from "../../../../shared/utils/redis.js";
 
 const TTL=60*60; // 1 hour
 
-export const idempotency=async (requestAnimationFrame,resizeBy,next)=>{
+export const idempotency = async (req, res, next) => {
     const key=req.headers["idempotency-key"];
 
     if(!key) return next();
 
-    const redisKey='idempotency:${key}';
+    const redisKey = `idempotency:${key}`;
 
     try{
         const existing=await redis.get(redisKey);
