@@ -3,17 +3,16 @@ import { createProxy } from "../services/proxy.js";
 import { SERVICES } from "../../config/services.config.js";
 import { verifyAuth } from "../middleware/auth.middleware.js";
 import dotenv from "dotenv";
+import { rateLimitMiddleware } from "../middleware/rateLimit.middleware.js";
 
 dotenv.config();
 
 const router = express.Router();
 
 
-
-// routes.js
 router.use("/auth",      createProxy(SERVICES.AUTH,     "auth"));
-router.use("/webhooks",  verifyAuth, createProxy(SERVICES.WEBHOOK,  "webhooks"));
-router.use("/events",    verifyAuth, createProxy(SERVICES.EVENT,    "events"));
+router.use("/webhooks", rateLimitMiddleware, verifyAuth, createProxy(SERVICES.WEBHOOK, "webhooks"));
+router.use("/events",   rateLimitMiddleware, verifyAuth, createProxy(SERVICES.EVENT,   "events"));
 router.use("/delivery",  verifyAuth, createProxy(SERVICES.DELIVERY, "delivery"));
 router.use("/retry",        verifyAuth, createProxy(SERVICES.RETRY,         "retry"));
 router.use("/dlq",          verifyAuth, createProxy(SERVICES.DLQ,           "dlq"));

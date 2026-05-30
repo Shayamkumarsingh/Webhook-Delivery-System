@@ -2,23 +2,16 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { checkRateLimit, resetRateLimit } from "./services/rateLimit.service.js";
-import logger from "./utils/logger.js";
+import { logger } from "../../../shared/utils/logger.js";
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3009;
-
-// Simple logger utility
-const localLogger = {
-  info: (msg) => console.log(msg),
-  error: (msg) => console.error(msg),
-};
+const PORT = process.env.PORT || 5009;
 
 app.use(cors());
 app.use(express.json());
 
-// Rate limit check endpoint
 app.post("/check", async (req, res) => {
   try {
     const { identifier, options } = req.body;
@@ -28,15 +21,13 @@ app.post("/check", async (req, res) => {
     }
 
     const result = await checkRateLimit(identifier, options);
-
     res.json(result);
   } catch (error) {
-    localLogger.error("Rate limit check error:", error);
+    logger.error("Rate limit check error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// Reset rate limit endpoint (for admin use)
 app.post("/reset", (req, res) => {
   try {
     const { identifier } = req.body;
@@ -46,10 +37,9 @@ app.post("/reset", (req, res) => {
     }
 
     resetRateLimit(identifier);
-
     res.json({ message: "Rate limit reset successfully" });
   } catch (error) {
-    localLogger.error("Rate limit reset error:", error);
+    logger.error("Rate limit reset error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -61,10 +51,10 @@ app.get("/health", (req, res) => {
 const startServer = async () => {
   try {
     app.listen(PORT, () => {
-      localLogger.info(`Rate Limit Service running on port ${PORT}`);
+      logger.info(`Rate Limit Service running on port ${PORT}`);
     });
   } catch (error) {
-    localLogger.error("Failed to start rate limit service:", error);
+    logger.error("Failed to start rate limit service:", error);
     process.exit(1);
   }
 };
