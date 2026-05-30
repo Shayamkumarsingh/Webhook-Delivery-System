@@ -1,43 +1,66 @@
+import IORedis from "ioredis";
+
+const redis = new IORedis({
+  host: process.env.REDIS_HOST,
+  port: parseInt(process.env.REDIS_PORT, 10),
+});
+
+redis.on("error", (err) => console.error("Redis error:", err));
+
 class TokenBucket {
   constructor(capacity, refillRate) {
     this.capacity = capacity;
-    this.tokens = capacity;
-    this.refillRate = refillRate; // tokens per second
-    this.lastRefill = Date.now();
+    this.refillRate = refillRate;
   }
 
-  async consume(tokens = 1) {
+  async consume(identifier, tokens = 1) {
     const now = Date.now();
-    const timePassed = (now - this.lastRefill) / 1000; // convert to seconds
+    const key = `rate_limit:${identifier}`;
+    const lastRefillKey = `rate_limit:${identifier}:lastRefill`;
 
-    // Refill tokens
-    this.tokens = Math.min(
+    const [currentTokens, lastRefill] = await redis.mget(key, lastRefillKey);
+
+    const last = parseInt(lastRefill) || now;
+    const current = currentTokens !== null ? parseFloat(currentTokens) : this.capacity;  // ← fix here
+
+    const timePassed = (now - last) / 1000;
+    const refilled = Math.min(
       this.capacity,
-      this.tokens + timePassed * this.refillRate
+      current + timePassed * this.refillRate
     );
 
-    this.lastRefill = now;
-
-    if (this.tokens >= tokens) {
-      this.tokens -= tokens;
-      return true;
+    if (refilled >= tokens) {
+      const newTokens = refilled - tokens;
+      await redis.mset(key, newTokens, lastRefillKey, now);
+      await redis.expire(key, 3600);
+      await redis.expire(lastRefillKey, 3600);
+      return { allowed: true, remaining: newTokens };
     }
 
-    return false;
+    await redis.mset(key, refilled, lastRefillKey, now);
+    await redis.expire(key, 3600);
+    await redis.expire(lastRefillKey, 3600);
+    return { allowed: false, remaining: refilled };
   }
 
-  async getRemainingTokens() {
+  async getRemainingTokens(identifier) {
     const now = Date.now();
-    const timePassed = (now - this.lastRefill) / 1000;
+    const key = `rate_limit:${identifier}`;
+    const lastRefillKey = `rate_limit:${identifier}:lastRefill`;
 
-    this.tokens = Math.min(
-      this.capacity,
-      this.tokens + timePassed * this.refillRate
-    );
+    const [currentTokens, lastRefill] = await redis.mget(key, lastRefillKey);
 
-    this.lastRefill = now;
+    const last = parseInt(lastRefill) || now;
+    const current = currentTokens !== null ? parseFloat(currentTokens) : this.capacity; 
 
-    return this.tokens;
+    const timePassed = (now - last) / 1000;
+    return Math.min(this.capacity, current + timePassed * this.refillRate);
+  }
+
+  async reset(identifier) {
+    const key = `rate_limit:${identifier}`;
+    const lastRefillKey = `rate_limit:${identifier}:lastRefill`;
+    await redis.del(key, lastRefillKey);
   }
 }
 
