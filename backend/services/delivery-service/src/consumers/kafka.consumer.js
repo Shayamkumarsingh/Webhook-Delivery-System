@@ -15,16 +15,24 @@ const getWebhooks = async (eventType) => {  // ← remove userId param
     return [];
   }
 };
-
 export const startConsumer = async () => {
-  await createConsumer("delivery-group", TOPICS.EVENTS, async (event) => {
+  // Don't await — consumer.run() never resolves, it blocks forever
+  createConsumer("delivery-group", TOPICS.EVENTS, async (event) => {
     try {
-      const webhooks = await getWebhooks(event.eventType); // ← remove userId
+      const webhooks = await getWebhooks(event.eventType);
       for (const webhook of webhooks) {
         await deliveryEvent(event, webhook);
       }
     } catch (err) {
       console.error("Consumer processing error:", err.message);
+    }
+  });
+
+  createConsumer("delivery-retry-group", TOPICS.DELIVERY, async ({ event, webhook, attempt }) => {
+    try {
+      await deliveryEvent(event, webhook, attempt);
+    } catch (err) {
+      console.error("Retry consumer processing error:", err.message);
     }
   });
 };
