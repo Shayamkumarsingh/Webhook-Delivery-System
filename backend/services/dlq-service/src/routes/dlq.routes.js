@@ -1,5 +1,5 @@
 import express from "express";
-import { getAll,retry,remove } from "../controllers/dlq.controller";
+import { getAll,retry,remove } from "../controllers/dlq.controller.js";
 
 const router =express.Router();
 

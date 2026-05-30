@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
-import {logger} from "shared"
+import {logger} from "../../../shared/utils/logger.js";
 
 export const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);
-    logger.info("DLQ DB Connected");
+    logger.info("DLQ DB Connected to mongodb");
   } catch (err) {
     logger.error("DLQ DB Connection Error:", err);
     process.exit(1);

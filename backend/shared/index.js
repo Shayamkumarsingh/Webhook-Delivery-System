@@ -5,7 +5,7 @@ export * from "./kafka/topics.js";
 
 // database
 export * from "./database/mongo.js";
-export * from "./database/postgres.js";
+// export * from "./database/postgres.js";
 
 // utils
 export { logger } from './utils/logger.js';
