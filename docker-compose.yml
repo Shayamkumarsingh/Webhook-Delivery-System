@@ -1,0 +1,242 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_log:/var/lib/zookeeper/log  
+    networks:
+      - webhook-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092" 
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:29092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - kafka_data:/var/lib/kafka/data  
+    networks:
+      - webhook-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./backend/infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - webhook-network
+
+
+  # mongo:
+  #   image: mongo:7
+  #   container_name: mongo
+  #   ports:
+  #     - "27017:27017"
+  #   volumes:
+  #     - mongo_data:/data/db
+  #   networks:
+  #     - webhook-network
+  #   healthcheck:
+  #     test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 20s
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data  
+    networks:
+      - webhook-network
+
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: ./backend/api-gateway/Dockerfile
+    container_name: api-gateway
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./backend/api-gateway/.env
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - auth-service
+      - webhook-service
+      - event-service
+      - delivery-service
+      - retry-service 
+      - rate-limit-service
+    restart: on-failure
+    networks:
+      - webhook-network    
+
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/auth-service/Dockerfile
+    container_name: auth-service
+    ports:
+      - "5001:5001"
+    env_file:
+      - ./backend/services/auth-service/.env
+    environment:
+      - NODE_ENV=production   
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - webhook-network
+
+  webhook-service:                                              # ← added
+    build:
+      context: .
+      dockerfile: ./backend/services/webhook-service/Dockerfile
+    container_name: webhook-service
+    ports:
+      - "5002:5002"
+    env_file:
+      - ./backend/services/webhook-service/.env
+    environment:
+      - NODE_ENV=production 
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - webhook-network    
+
+
+  event-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/event-service/Dockerfile
+    container_name: event-service
+    ports:
+      - "5003:5003"
+    env_file:
+      - ./backend/services/event-service/.env
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:                          
+        condition: service_started  
+    restart: on-failure
+    networks:
+      - webhook-network
+
+  retry-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/retry-service/Dockerfile
+    container_name: retry-service
+    ports:
+      - "5005:5005"
+    env_file:
+      - ./backend/services/retry-service/.env
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: on-failure
+    networks:
+      - webhook-network
+
+
+  rate-limit-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/rate-limit-service/Dockerfile
+    container_name: rate-limit-service
+    ports:
+      - "5009:5009"
+    env_file:
+      - ./backend/services/rate-limit-service/.env
+    environment:
+      - NODE_ENV=production
+    restart: on-failure
+    networks:
+      - webhook-network
+
+
+  delivery-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/delivery-service/Dockerfile
+    container_name: delivery-service
+    ports:
+      - "5004:5004"
+    env_file:
+      - ./backend/services/delivery-service/.env
+    environment:
+      - NODE_ENV=production 
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      webhook-service:       
+        condition: service_started  
+    restart: on-failure
+    networks:
+      - webhook-network
+
+networks:
+  webhook-network:
+    driver: bridge
+
+volumes:
+  pg_data:
+  zookeeper_data:
+  zookeeper_log:
+  kafka_data:
+  redis_data:
+
