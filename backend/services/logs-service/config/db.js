@@ -1,5 +1,12 @@
-import { connectMongo } from "shared";
+import mongoose from "mongoose";
+import {logger} from "../../../shared/utils/logger.js";
 
 export const connectDB = async () => {
-  await connectMongo();
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
+    logger.info("LOGS DB Connected to mongodb");
+  } catch (err) {
+    logger.error("LOGS DB Connection Error:", err);
+    process.exit(1);
+  }
 };

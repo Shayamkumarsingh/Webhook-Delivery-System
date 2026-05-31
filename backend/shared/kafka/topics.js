@@ -4,4 +4,5 @@
     DELIVERY:"webhook-delivery",
     RETRY:"retry-events",
     DLQ:"dead-letter-events",
+    LOGS:"service-logs",
  };

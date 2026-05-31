@@ -11,6 +11,7 @@ export const SERVICES = {
   RETRY: process.env.RETRY_SERVICE,
   DLQ: process.env.DLQ_SERVICE,
   NOTIFICATION: process.env.NOTIFICATION_SERVICE,
+  LOGS: process.env.LOGS_SERVICE,
   RATE_LIMIT: process.env.RATE_LIMIT_SERVICE,
 };
 

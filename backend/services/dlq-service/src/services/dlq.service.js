@@ -1,13 +1,20 @@
 import DLQEvent from "../models/dlq.model.js";
-import {sendMessage} from "../../../../shared/kafka/producer.js";
+import { sendMessage } from "../../../../shared/kafka/producer.js";
 import { TOPICS } from "../../../../shared/kafka/topics.js";
 import { logger } from "../../../../shared/utils/logger.js";
-
-
-
+import { publishLog } from "../../../../shared/utils/logPublisher.js";
 
 export const saveToDLQ = async (data) => {
-  return await DLQEvent.create(data);
+  const result = await DLQEvent.create(data);
+
+  
+  await publishLog("dlq-service", "error", "Event moved to DLQ", {
+    eventId: data.event?._id,
+    webhookId: data.webhook?._id,
+    attempt: data.attempt,
+  });
+
+  return result;
 };
 
 export const getAllDLQ = async () => {
@@ -20,12 +27,18 @@ export const retryFromDLQ = async (id) => {
 
   logger.info(`Retrying DLQ item ${id}`);
 
+  await publishLog("dlq-service", "info", "Retrying DLQ item", {
+    id,
+    eventId: item.event?._id,
+    webhookId: item.webhook?._id,
+  });
+
   await sendMessage(TOPICS.EVENTS, {
     ...item.event,
     retryAttempt: 1,
   });
 
-  await DLQEvent.findByIdAndDelete(id);  
+  await DLQEvent.findByIdAndDelete(id);
 
   return { success: true };
 };
