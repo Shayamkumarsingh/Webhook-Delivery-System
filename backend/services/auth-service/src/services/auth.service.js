@@ -50,28 +50,56 @@ export const registerUser = async ({ email, password }) => {
 
 export const loginUser = async ({ email, password }) => {
   const user = await User.findOne({ where: { email } });
-  if (!user) {
-    throw { status: 400, message: "Invalid credentials" };
-  }
+  if (!user) throw { status: 400, message: "Invalid credentials" };
 
   const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) {
-    throw { status: 400, message: "Invalid credentials" };
-  }
+  if (!isMatch) throw { status: 400, message: "Invalid credentials" };
 
-  const token = jwt.sign(
+  const accessToken = jwt.sign(
     { id: user.id },
     process.env.JWT_SECRET,
     { expiresIn: "15m" }
   );
 
+  // Generate refresh token
+  const refreshToken = crypto.randomBytes(40).toString("hex");
+  const refreshTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+  // Save to DB
+  await user.update({ 
+    refreshToken,
+    refreshTokenExpiry 
+  });
+
   return {
-    token,
-    user: {
-      id: user.id,
-      email: user.email,
-    }
+    accessToken,
+    refreshToken,
+    user: { id: user.id, email: user.email }
   };
+};
+
+export const refreshAccessToken = async (refreshToken) => {
+  const user = await User.findOne({ where: { refreshToken } });
+
+  if (!user) throw { status: 401, message: "Invalid refresh token" };
+  if (new Date() > user.refreshTokenExpiry) {
+    throw { status: 401, message: "Refresh token expired" };
+  }
+
+  const accessToken = jwt.sign(
+    { id: user.id },
+    process.env.JWT_SECRET,
+    { expiresIn: "15m" }
+  );
+
+  return { accessToken };
+};
+
+export const logoutUser = async (refreshToken) => {
+  const user = await User.findOne({ where: { refreshToken } });
+  if (user) {
+    await user.update({ refreshToken: null, refreshTokenExpiry: null });
+  }
 };
 
 export const getUserByApiKey = async (apiKey) => {

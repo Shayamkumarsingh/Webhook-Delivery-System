@@ -19,6 +19,14 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  refreshToken: {
+  type: DataTypes.STRING,
+  allowNull: true,
+},
+refreshTokenExpiry: {
+  type: DataTypes.DATE,
+  allowNull: true,
+},
   apiKey: {
     type: DataTypes.STRING,
     allowNull: true,
