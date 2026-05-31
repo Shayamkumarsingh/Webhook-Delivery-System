@@ -104,6 +104,9 @@ services:
       - delivery-service
       - retry-service 
       - rate-limit-service
+      - dlq-service
+      - logs-service
+      - notification-service
     restart: on-failure
     networks:
       - webhook-network    
@@ -170,6 +173,24 @@ services:
     networks:
       - webhook-network
 
+  dlq-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/dlq-service/Dockerfile
+    container_name: dlq-service
+    ports:
+      - "5006:5006"
+    env_file:
+      - ./backend/services/dlq-service/.env
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - webhook-network
+
   retry-service:
     build:
       context: .
@@ -202,6 +223,42 @@ services:
       - ./backend/services/rate-limit-service/.env
     environment:
       - NODE_ENV=production
+    restart: on-failure
+    networks:
+      - webhook-network
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/notification-service/Dockerfile
+    container_name: notification-service
+    ports:
+      - "5007:5007"
+    env_file:
+      - ./backend/services/notification-service/.env
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - webhook-network
+
+  logs-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/logs-service/Dockerfile
+    container_name: logs-service
+    ports:
+      - "5008:5008"
+    env_file:
+      - ./backend/services/logs-service/.env
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      kafka:
+        condition: service_healthy
     restart: on-failure
     networks:
       - webhook-network
