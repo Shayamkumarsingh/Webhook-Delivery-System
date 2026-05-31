@@ -1,4 +1,7 @@
-import { createConsumer, TOPICS, logger } from "shared";
+import { createConsumer } from "../../../../shared/kafka/consumer.js";
+import { TOPICS } from "../../../../shared/kafka/topics.js";
+import { logger } from "../../../../shared/utils/logger.js";
+import { publishLog } from "../../../../shared/utils/logPublisher.js";
 import UserCache from "../models/userCache.model.js";
 
 export const startUserConsumer = async () => {

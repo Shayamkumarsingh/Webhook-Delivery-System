@@ -1,8 +1,12 @@
-import { connectMongo } from "shared";
-import UserCache from '../src/models/userCache.model.js';
+import mongoose from "mongoose";
+import { logger } from "../../../shared/utils/logger.js";
 
 export const connectDB = async () => {
-  await connectMongo();
-  // Sync the model
-  await UserCache.sync();
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
+    logger.info("Notification DB Connected to mongodb");
+  } catch (err) {
+    logger.error("Notification DB Connection Error:", err);
+    process.exit(1);
+  }
 };

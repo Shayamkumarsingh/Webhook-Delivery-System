@@ -35,6 +35,12 @@ export const registerUser = async ({ email, password }) => {
     eventType: "user.created",
   });
 
+  await sendMessage(TOPICS.USER, {
+  userId: user.id.toString(),
+  email: user.email,
+  type: "USER_CREATED",
+});
+
   return {
     id: user.id,
     email: user.email,
