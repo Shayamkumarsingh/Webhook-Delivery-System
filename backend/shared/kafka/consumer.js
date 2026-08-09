@@ -31,7 +31,7 @@ export const createConsumer = async (
 
     await consumer.run({
      eachMessage: async ({ message }) => {
-  let data;  // ← hoist it
+  let data;  
   try {
     data = JSON.parse(message.value.toString());
     await handler(data);

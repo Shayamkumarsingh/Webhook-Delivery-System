@@ -3,6 +3,5 @@ import User from '../src/models/user.model.js';
 
 export const connectDB = async () => {
   await connectPostgres();
-  // Sync the model
   await User.sync({ alter: true });
 };

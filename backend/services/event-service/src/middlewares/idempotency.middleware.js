@@ -1,6 +1,6 @@
 import { redis } from "../../../../shared/utils/redis.js";
 
-const TTL=60*60; // 1 hour
+const TTL=60*60; 
 
 export const idempotency = async (req, res, next) => {
     const key=req.headers["idempotency-key"];
@@ -15,12 +15,12 @@ export const idempotency = async (req, res, next) => {
         if(existing){
             const data=JSON.parse(existing);
 
-            // IF already completed, return same cached response
+            
             if(data.status==="completed"){
                 return res.status(200).json(data.response);
             }
 
-            //if still progressing,avoid duplicate processing
+
             if(data.status==="processing"){
                 return res.status(409).json({
                     message:"Request is already being processed",
@@ -29,14 +29,13 @@ export const idempotency = async (req, res, next) => {
 }
 
 
-        // set key as processing
+       
         await redis.set(redisKey,JSON.stringify({status:"processing"}), "EX", TTL);
 
-        // capture response data
+      
         const originalJson=res.json.bind(res);
 
         res.json=async(body)=>{
-            // cache the response with completed status
             await redis.set(redisKey,JSON.stringify({
                 status:"completed",
                 response:body,

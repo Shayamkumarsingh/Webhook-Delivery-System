@@ -6,7 +6,7 @@ export const createProxy = (target, pathPrefix) => {
   return createProxyMiddleware({
     target,
     changeOrigin: true,
-    pathRewrite: (path) => `/api/${pathPrefix}${path}`, // ✅ dynamic
+    pathRewrite: (path) => `/api/${pathPrefix}${path}`, 
     on: {
       proxyReq: (proxyReq, req) => {
         if (req.headers["x-user-id"]) {

@@ -31,7 +31,7 @@ export const sendMessage = async (topic, message) => {
       topic,
       messages: [
         {
-          key: message.webhookId || null, // helps partitioning
+          key: message.webhookId || null, 
           value: JSON.stringify({
             ...message,
             retryCount: message.retryCount || 0,

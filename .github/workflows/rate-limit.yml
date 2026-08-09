@@ -1,0 +1,136 @@
+name: Rate Limit Service CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'rate-limit-service/**'
+      - '.github/workflows/rate-limit-service.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'rate-limit-service/**'
+
+env:
+  SERVICE_NAME: rate-limit-service
+  DOCKER_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/rate-limit-service
+
+jobs:
+  test:
+    name: Test Rate Limit Service
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: rate-limit-service/package-lock.json
+
+      - name: Install dependencies
+        working-directory: rate-limit-service
+        run: npm ci
+
+      - name: Create test env file
+        working-directory: rate-limit-service
+        run: |
+          cat > .env << EOF
+          PORT=5009
+          REDIS_HOST=localhost
+          REDIS_PORT=6379
+          KAFKA_BROKER=localhost:9092
+          EOF
+
+      - name: Run tests
+        working-directory: rate-limit-service
+        run: npm test --if-present
+
+      - name: Run lint
+        working-directory: rate-limit-service
+        run: npm run lint --if-present
+
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_IMAGE }}
+          tags: |
+            type=sha,prefix=sha-
+            type=ref,event=branch
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: rate-limit-service/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy Rate Limit Service
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Deploy to server via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /app/webhook-platform
+            docker pull ${{ env.DOCKER_IMAGE }}:latest
+            docker compose up -d --no-deps rate-limit-service
+            docker system prune -f
+            echo "Rate Limit Service deployed successfully"
+
+      - name: Verify deployment
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            sleep 10
+            curl -f http://localhost:5009/health || exit 1
+            echo "Rate Limit Service health check passed"

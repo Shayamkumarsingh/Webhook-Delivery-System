@@ -12,7 +12,7 @@ export const sequelize = new Sequelize(process.env.POSTGRES_URI, {
   dialectOptions: {
     ssl: {
       require: true,
-      rejectUnauthorized: false,  // needed for Neon
+      rejectUnauthorized: false,  
     }
   },
   pool: {

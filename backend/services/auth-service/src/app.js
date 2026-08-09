@@ -17,7 +17,7 @@ import { connectProducer } from "../../../shared/kafka/producer.js";
 
 const app = express();
 
-// Security middlewares
+
 app.use(helmet());
 app.use(cors({
   origin: ['http://localhost:3000', 'http://localhost:5173'],
@@ -26,21 +26,21 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
 }));
 
-// Body parser
+
 app.use(express.json());
 
-// Logging
+
 app.use(morgan("combined"));
 
-// Health check route (VERY IMPORTANT in production)
+
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", service: "auth-service" });
 });
 
-// Routes
+
 app.use("/api/auth", authRoutes);
 
-// 404 Handler (must be before error handler)
+
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -48,7 +48,7 @@ app.use((req, res) => {
   });
 });
 
-// Global Error Handler
+
 app.use(errorHandler);
 
 const startServer = async () => {

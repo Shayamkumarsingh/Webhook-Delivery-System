@@ -29,7 +29,6 @@ export const rateLimitMiddleware = async (req, res, next) => {
 
     next();
   } catch (err) {
-    // If rate limit service is down, allow request through
     console.error("Rate limit service error:", err.message);
     next();
   }

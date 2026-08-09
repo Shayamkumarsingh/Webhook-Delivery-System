@@ -3,12 +3,17 @@ import {  TOPICS } from "../../../../shared/kafka/topics.js";
 import { deliveryEvent } from "../services/delivery.service.js";
 import axios from "axios";
 
-const getWebhooks = async (eventType) => {  // ← remove userId param
+const getWebhooks = async (userId, eventType) => {
   try {
     const res = await axios.get(
-      `${process.env.WEBHOOK_SERVICE_URL}/api/webhooks?eventType=${eventType}`
-      // ← remove x-user-id header, fetch ALL webhooks for this eventType
+      `${process.env.WEBHOOK_SERVICE_URL}/api/webhooks?eventType=${eventType}`,
+      {
+        headers: {
+          "x-user-id": userId,
+        },
+      }
     );
+
     return res.data.data;
   } catch (err) {
     console.error("Failed to fetch webhooks:", err.message);
@@ -16,10 +21,12 @@ const getWebhooks = async (eventType) => {  // ← remove userId param
   }
 };
 export const startConsumer = async () => {
-  // Don't await — consumer.run() never resolves, it blocks forever
   createConsumer("delivery-group", TOPICS.EVENTS, async (event) => {
     try {
-      const webhooks = await getWebhooks(event.eventType);
+      const webhooks = await getWebhooks(
+          event.userId,
+          event.eventType
+      );
       for (const webhook of webhooks) {
         await deliveryEvent(event, webhook);
       }

@@ -52,14 +52,13 @@ export const logout = async (req, res, next) => {
 export const getMe = async (req, res) => {
     res.json({
         success: true,
-        data: req.user,  // already fetched by verifyApiKey
+        data: req.user,  
     });
 }
 
 
 export const getUserById = async (req, res) => {
   try {
-    // 🔐 internal security check
     if (req.headers["x-internal-secret"] !== process.env.INTERNAL_SECRET) {
       return res.status(403).json({ message: "Forbidden" });
     }

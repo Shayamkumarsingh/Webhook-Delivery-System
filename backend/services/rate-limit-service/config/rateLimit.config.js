@@ -1,5 +1,4 @@
 export const rateLimitConfig = {
-  // Default limits for different operations
   webhookDelivery: {
     capacity: 100,
     refillRate: 10, // 10 requests per second

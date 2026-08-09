@@ -3,7 +3,7 @@ import { getLogs, getStats, getLogById } from "../controllers/delivery.controlle
 
 const router = express.Router();
 
-router.get("/stats", getStats);   // must be before /:id
+router.get("/stats", getStats);   
 router.get("/", getLogs);
 router.get("/:id", getLogById);
 

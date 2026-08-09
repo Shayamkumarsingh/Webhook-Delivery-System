@@ -27,7 +27,7 @@ export const registerUser = async ({ email, password }) => {
     apiKey: crypto.randomBytes(16).toString("hex"),
   });
 
-  // PUBLISH USER EVENT to Kafka so that other services can consume it
+  
   await sendMessage(TOPICS.EVENTS, {
     userId: user.id.toString(),
     email: user.email,
@@ -61,7 +61,7 @@ export const loginUser = async ({ email, password }) => {
     { expiresIn: "15m" }
   );
 
-  // Generate refresh token
+  
   const refreshToken = crypto.randomBytes(40).toString("hex");
   const refreshTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 

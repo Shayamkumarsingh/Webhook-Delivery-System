@@ -14,7 +14,7 @@ const app = express();
 
 app.use(helmet());
 
-// ✅ Updated CORS
+
 app.use(cors({
   origin: [
     'http://localhost:3000',
