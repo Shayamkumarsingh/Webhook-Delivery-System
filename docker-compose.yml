@@ -2,6 +2,7 @@ services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
     container_name: zookeeper
+    restart: unless-stopped
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -14,6 +15,7 @@ services:
   kafka:
     image: confluentinc/cp-kafka:7.4.0
     container_name: kafka
+    restart: unless-stopped
     depends_on:
       - zookeeper
     ports:
@@ -78,6 +80,7 @@ services:
   redis:
     image: redis:alpine
     container_name: redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
@@ -289,5 +292,3 @@ volumes:
   zookeeper_log:
   kafka_data:
   redis_data:
-
- 

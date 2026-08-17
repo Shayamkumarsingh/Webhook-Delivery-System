@@ -1,12 +1,13 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { baseQueryWithReauth } from "@/lib/baseQuery";
 
-interface Log {
+export interface Log {
   _id: string;
   level: string;
   message: string;
   service: string;
   timestamp: string;
+  metadata?: Record<string, unknown>;
   meta?: Record<string, unknown>;
 }
 

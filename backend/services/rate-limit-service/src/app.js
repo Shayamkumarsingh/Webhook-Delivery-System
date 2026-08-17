@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 5009;
 app.use(cors());
 app.use(express.json());
 
-app.post("/check", async (req, res) => {
+const handleCheck = async (req, res) => {
   try {
     const { identifier, options } = req.body;
 
@@ -26,9 +26,9 @@ app.post("/check", async (req, res) => {
     logger.error("Rate limit check error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
-});
+};
 
-app.post("/reset", (req, res) => {
+const handleReset = (req, res) => {
   try {
     const { identifier } = req.body;
 
@@ -42,7 +42,14 @@ app.post("/reset", (req, res) => {
     logger.error("Rate limit reset error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
-});
+};
+
+// Support both direct calls and proxy path routes
+app.post("/check", handleCheck);
+app.post("/api/rate-limit/check", handleCheck);
+
+app.post("/reset", handleReset);
+app.post("/api/rate-limit/reset", handleReset);
 
 app.get("/health", (req, res) => {
   res.json({ status: "healthy", service: "rate-limit-service" });

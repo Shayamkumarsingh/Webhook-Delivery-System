@@ -1,8 +1,9 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { baseQueryWithReauth } from "@/lib/baseQuery";
 
-interface Event {
-  _id: string;
+export interface Event {
+  _id?: string;
+  id?: string;
   eventType: string;
   email: string;
   payload: Record<string, unknown>;

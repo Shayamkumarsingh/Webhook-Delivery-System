@@ -6,13 +6,6 @@ import { logger } from  "../../../../shared/index.js";
 import { sendMessage } from "../../../../shared/kafka/producer.js";
 import { TOPICS } from "../../../../shared/kafka/topics.js";
 
-
-
-
-
-
-
-
 export const registerUser = async ({ email, password }) => {
   const existingUser = await User.findOne({ where: { email } });
   if (existingUser) {
@@ -27,19 +20,21 @@ export const registerUser = async ({ email, password }) => {
     apiKey: crypto.randomBytes(16).toString("hex"),
   });
 
-  
   await sendMessage(TOPICS.EVENTS, {
+    _id: `usr_${user.id}`,
+    id: `usr_${user.id}`,
     userId: user.id.toString(),
     email: user.email,
     type: "USER_CREATED",
     eventType: "user.created",
+    payload: { id: user.id, email: user.email },
   });
 
   await sendMessage(TOPICS.USER, {
-  userId: user.id.toString(),
-  email: user.email,
-  type: "USER_CREATED",
-});
+    userId: user.id.toString(),
+    email: user.email,
+    type: "USER_CREATED",
+  });
 
   return {
     id: user.id,
@@ -56,12 +51,11 @@ export const loginUser = async ({ email, password }) => {
   if (!isMatch) throw { status: 400, message: "Invalid credentials" };
 
   const accessToken = jwt.sign(
-    { id: user.id },
+    { id: user.id, email: user.email },
     process.env.JWT_SECRET,
     { expiresIn: "15m" }
   );
 
-  
   const refreshToken = crypto.randomBytes(40).toString("hex");
   const refreshTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
@@ -74,7 +68,8 @@ export const loginUser = async ({ email, password }) => {
   return {
     accessToken,
     refreshToken,
-    user: { id: user.id, email: user.email }
+    apiKey: user.apiKey,
+    user: { id: user.id, email: user.email, apiKey: user.apiKey }
   };
 };
 
@@ -87,12 +82,12 @@ export const refreshAccessToken = async (refreshToken) => {
   }
 
   const accessToken = jwt.sign(
-    { id: user.id },
+    { id: user.id, email: user.email },
     process.env.JWT_SECRET,
     { expiresIn: "15m" }
   );
 
-  return { accessToken };
+  return { accessToken, apiKey: user.apiKey };
 };
 
 export const logoutUser = async (refreshToken) => {
@@ -122,5 +117,6 @@ export const getUserByIdService = async (id) => {
   return {
     id: user.id,
     email: user.email,
+    apiKey: user.apiKey,
   };
 };

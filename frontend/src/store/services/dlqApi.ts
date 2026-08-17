@@ -1,12 +1,16 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { baseQueryWithReauth } from "@/lib/baseQuery";
 
-interface DLQEntry {
+export interface DLQEntry {
   _id: string;
-  webhookId: string;
-  payload: Record<string, unknown>;
-  error: string;
-  retryCount: number;
+  webhookId?: string;
+  webhook?: Record<string, unknown> | { url?: string; eventType?: string };
+  event?: Record<string, unknown> | { eventType?: string; payload?: unknown };
+  payload?: Record<string, unknown>;
+  reason?: string;
+  error?: string;
+  attempts?: number;
+  retryCount?: number;
   createdAt: string;
 }
 

@@ -32,9 +32,11 @@ export const authApi = createApi({
         success: boolean;
         accessToken: string;
         refreshToken: string;
+        apiKey?: string;
         user: {
           id: number;
           email: string;
+          apiKey?: string;
         };
       },
       {

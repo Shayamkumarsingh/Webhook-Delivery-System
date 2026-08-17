@@ -3,12 +3,14 @@ import { AuthState } from "@/lib/types";
 
 // helper to set a cookie
 function setCookie(name: string, value: string, days = 7) {
+  if (typeof document === "undefined") return;
   const expires = new Date(Date.now() + days * 864e5).toUTCString();
-  document.cookie = `${name}=${value}; expires=${expires}; path=/; SameSite=Lax`;
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
 }
 
 function deleteCookie(name: string) {
-  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+  if (typeof document === "undefined") return;
+  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax`;
 }
 
 const initialState: AuthState = {
@@ -36,23 +38,23 @@ const authSlice = createSlice({
 
       if (user) {
         state.user = user;
-        localStorage.setItem("user", JSON.stringify(user));
+        if (typeof window !== "undefined") localStorage.setItem("user", JSON.stringify(user));
       }
       if (apiKey) {
         state.apiKey = apiKey;
-        localStorage.setItem("apiKey", apiKey);
-        setCookie("apiKey", apiKey);          // ← set cookie for middleware
+        if (typeof window !== "undefined") localStorage.setItem("apiKey", apiKey);
+        setCookie("apiKey", apiKey);
       }
       if (accessToken) {
         state.accessToken = accessToken;
-        localStorage.setItem("accessToken", accessToken);
-        setCookie("accessToken", accessToken); // ← set cookie for middleware
+        if (typeof window !== "undefined") localStorage.setItem("accessToken", accessToken);
+        setCookie("accessToken", accessToken);
       }
       if (refreshToken) {
         state.refreshToken = refreshToken;
-        localStorage.setItem("refreshToken", refreshToken);
+        if (typeof window !== "undefined") localStorage.setItem("refreshToken", refreshToken);
       }
-      state.isAuthenticated = true;
+      state.isAuthenticated = Boolean(state.apiKey || state.accessToken);
     },
 
     logout(state) {
@@ -61,11 +63,13 @@ const authSlice = createSlice({
       state.accessToken = null;
       state.refreshToken = null;
       state.isAuthenticated = false;
-      localStorage.removeItem("user");
-      localStorage.removeItem("apiKey");
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
-      deleteCookie("apiKey");                 // ← clear cookies
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("user");
+        localStorage.removeItem("apiKey");
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+      }
+      deleteCookie("apiKey");
       deleteCookie("accessToken");
     },
 
@@ -78,14 +82,21 @@ const authSlice = createSlice({
 
         if (apiKey) {
           state.apiKey = apiKey;
-          state.isAuthenticated = true;
-          setCookie("apiKey", apiKey);         // ← re-sync cookie on restore
+          setCookie("apiKey", apiKey);
         }
         if (accessToken) {
           state.accessToken = accessToken;
           setCookie("accessToken", accessToken);
         }
-        if (refreshToken) state.refreshToken = refreshToken;
+        if (refreshToken) {
+          state.refreshToken = refreshToken;
+        }
+        if (apiKey || accessToken) {
+          state.isAuthenticated = true;
+        } else {
+          state.isAuthenticated = false;
+        }
+
         if (userRaw) {
           try {
             state.user = JSON.parse(userRaw);

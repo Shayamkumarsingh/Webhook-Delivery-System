@@ -3,18 +3,27 @@ import type { NextRequest } from "next/server";
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const publicPaths = ["/login", "/register"];
-  const isPublic = publicPaths.some((p) => pathname.startsWith(p));
+  const isPublic = pathname.startsWith("/login") || pathname.startsWith("/register");
 
   const apiKey = request.cookies.get("apiKey")?.value;
   const accessToken = request.cookies.get("accessToken")?.value;
+  const isLoggedIn = Boolean(apiKey || accessToken);
 
-  const isLoggedIn = !!(apiKey || accessToken); // ← accept either
+  // If visiting root /
+  if (pathname === "/") {
+    if (isLoggedIn) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    } else {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+  }
 
+  // If not logged in and trying to access protected dashboard routes
   if (!isLoggedIn && !isPublic) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
+  // If already logged in and trying to access login/register
   if (isLoggedIn && isPublic) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
@@ -23,5 +32,14 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes if any inside next)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    "/((?!api|_next/static|_next/image|favicon.ico).*)",
+  ],
 };
